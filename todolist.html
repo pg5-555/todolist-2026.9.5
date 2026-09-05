@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>顶配待办清单</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        /*日间模式*/
+        body {
+            background: linear-gradient(120deg, #e0f7fa, #f3e5f5);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            width: 520px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 35px;
+            border-radius: 20px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #333;
+        }
+
+        /*主题切换*/
+        .theme-box {
+            text-align: right;
+            margin-bottom: 15px;
+        }
+        #themeBtn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 20px;
+            background: #222;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        /*输入区域*/
+        .input-wrap {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        #todoInput {
+            flex: 1;
+            padding: 13px 16px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        #todoInput:focus {
+            outline: none;
+            border-color: #409eff;
+            box-shadow: 0 0 8px #409eff40;
+        }
+        #addBtn {
+            padding: 13px 22px;
+            border: none;
+            border-radius: 10px;
+            background: #409eff;
+            color: #fff;
+            cursor: pointer;
+        }
+        #addBtn:hover {
+            background: #2986e8;
+            transform: scale(1.03);
+        }
+
+        /*筛选栏*/
+        .filter-box {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .filter-box button {
+            flex: 1;
+            padding: 8px 0;
+            border: none;
+            border-radius: 8px;
+            background: #f5f5f5;
+            cursor: pointer;
+        }
+        .filter-box button.active {
+            background: #409eff;
+            color: #fff;
+        }
+
+        /*统计*/
+        .count-info {
+            display: flex;
+            justify-content: space-between;
+            color: #666;
+            font-size:14px;
+            margin-bottom:20px;
+        }
+
+        /*任务项*/
+        .todo-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding:14px 16px;
+            background:#f8f9fa;
+            border-radius:12px;
+            margin:10px 0;
+        }
+        .todo-item:hover{
+            transform: translateY(-3px);
+            box-shadow:0 5px 15px rgba(0,0,0,0.08);
+        }
+        .todo-item.done .text{
+            text-decoration: line-through;
+            color:#999;
+        }
+        .text{
+            flex:1;
+            margin:0 12px;
+        }
+        .btn-group button{
+            margin:0 3px;
+            padding:5px 10px;
+            border:none;
+            border-radius:6px;
+            cursor:pointer;
+            font-size:13px;
+        }
+        .top-btn{background:#ffb800;color:#fff;}
+        .edit-btn{background:#67c23a;color:#fff;}
+        .del-btn{background:#f56c6c;color:#fff;}
+
+        #clearAll{
+            width:100%;
+            margin-top:25px;
+            padding:12px;
+            border:none;
+            border-radius:10px;
+            background:#909399;
+            color:#fff;
+            cursor:pointer;
+            font-size:15px;
+        }
+
+        /*暗黑模式*/
+        body.dark{
+            background:#1a1a2e;
+        }
+        body.dark .container{
+            background:#24243e;
+        }
+        body.dark h2,
+        body.dark .text,
+        body.dark .count-info{
+            color:#eee;
+        }
+        body.dark .todo-item{
+            background:#2c2c44;
+        }
+        body.dark #todoInput{
+            background:#333352;
+            border-color:#444;
+            color:#fff;
+        }
+        body.dark .filter-box button{
+            background:#333352;
+            color:#fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="theme-box">
+            <button id="themeBtn">🌙 黑夜模式</button>
+        </div>
+        <h2>📝 我的待办清单</h2>
+
+        <div class="input-wrap">
+            <input id="todoInput" type="text" placeholder="输入任务，回车添加">
+            <button id="addBtn">添加</button>
+        </div>
+
+        <div class="filter-box">
+            <button class="filter-btn active" data-type="all">全部</button>
+            <button class="filter-btn" data-type="undone">未完成</button>
+            <button class="filter-btn" data-type="done">已完成</button>
+        </div>
+
+        <div class="count-info">
+            <span>全部：<strong id="allNum">0</strong></span>
+            <span>已完成：<strong id="doneNum">0</strong></span>
+            <span>未完成：<strong id="undoneNum">0</strong></span>
+        </div>
+
+        <div id="listBox"></div>
+
+        <button id="clearAll">清空全部任务</button>
+    </div>
+
+    <script>
+        let todoList = JSON.parse(localStorage.getItem('todo')) || [];
+        let filterType = 'all';
+
+        const input = document.getElementById('todoInput');
+        const addBtn = document.getElementById('addBtn');
+        const listBox = document.getElementById('listBox');
+        const clearAll = document.getElementById('clearAll');
+        const themeBtn = document.getElementById('themeBtn');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+
+        render();
+
+        // 添加
+        addBtn.addEventListener('click',addTodo);
+        input.addEventListener('keydown',e=>{
+            if(e.key === 'Enter') addTodo();
+        })
+
+        //清空
+        clearAll.addEventListener('click',()=>{
+            if(confirm("确定清空所有任务？")){
+                todoList = [];
+                save();render();
+            }
+        })
+
+        //主题切换
+        themeBtn.addEventListener('click',()=>{
+            document.body.classList.toggle('dark');
+            if(document.body.classList.contains('dark')){
+                themeBtn.innerText = "☀️ 白天模式";
+            }else{
+                themeBtn.innerText = "🌙 黑夜模式";
+            }
+        })
+
+        //筛选
+        filterBtns.forEach(btn=>{
+            btn.addEventListener('click',()=>{
+                filterBtns.forEach(b=>b.classList.remove('active'));
+                btn.classList.add('active');
+                filterType = btn.dataset.type;
+                render();
+            })
+        })
+
+        function addTodo(){
+            let val = input.value.trim();
+            if(!val){
+                alert("任务不能为空！");
+                return;
+            }
+            todoList.push({
+                text:val,
+                done:false,
+                top:false
+            })
+            input.value = '';
+            save();render();
+        }
+
+        function changeDone(index){
+            todoList[index].done = !todoList[index].done;
+            save();render();
+        }
+
+        function delTodo(index){
+            todoList.splice(index,1);
+            save();render();
+        }
+
+        function editTodo(index){
+            let newText = prompt("修改任务",todoList[index].text);
+            if(newText !== null && newText.trim()!==''){
+                todoList[index].text = newText.trim();
+                save();render();
+            }
+        }
+
+        function topTodo(index){
+            todoList[index].top = true;
+            //置顶放到数组头部
+            let item = todoList.splice(index,1)[0];
+            todoList.unshift(item);
+            save();render();
+        }
+
+        function render(){
+            listBox.innerHTML = '';
+            //置顶优先排序
+            todoList.sort((a,b)=>(b.top?1:0)-(a.top?1:0));
+
+            let showList;
+            if(filterType === 'done'){
+                showList = todoList.filter(x=>x.done);
+            }else if(filterType === 'undone'){
+                showList = todoList.filter(x=>!x.done);
+            }else{
+                showList = [...todoList];
+            }
+
+            showList.forEach((item,showIdx)=>{
+                //找到原数组真实下标
+                let realIndex = todoList.indexOf(item);
+                let div = document.createElement('div');
+                div.className = 'todo-item '+(item.done?'done':'');
+                div.innerHTML = `
+                    <input type="checkbox" ${item.done?'checked':''}>
+                    <p class="text">${item.text}</p >
+                    <div class="btn-group">
+                        <button class="top-btn">置顶</button>
+                        <button class="edit-btn">编辑</button>
+                        <button class="del-btn">删除</button>
+                    </div>
+                `
+                div.querySelector('input').addEventListener('change',()=>changeDone(realIndex));
+                div.querySelector('.top-btn').addEventListener('click',()=>topTodo(realIndex));
+                div.querySelector('.edit-btn').addEventListener('click',()=>editTodo(realIndex));
+                div.querySelector('.del-btn').addEventListener('click',()=>delTodo(realIndex));
+                listBox.appendChild(div);
+            })
+
+            const all = todoList.length;
+            const done = todoList.filter(v=>v.done).length;
+            const undone = all - done;
+            document.getElementById('allNum').innerText = all;
+            document.getElementById('doneNum').innerText = done;
+            document.getElementById('undoneNum').innerText = undone;
+        }
+
+        function save(){
+            localStorage.setItem('todo',JSON.stringify(todoList));
+        }
+    </script>
+</body>
+</html>
